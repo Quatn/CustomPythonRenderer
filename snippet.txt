@@ -1,0 +1,90 @@
+def PlaneClip(ShearPlaneNormal, InputPlane):
+    if not isinstance(ShearPlaneNormal, mat.Matrix) and ShearPlaneNormal.height != 3:
+        raise Exception("ShearPlaneNormal inputted was not a 3x0 matrix")
+
+    if not InputPlane.__len__() != 3:
+        raise Exception("InputPlane is not a tupple with 3 matrices")
+
+    Out = []
+    inside = []
+    outside = []
+    for vertexIndex in range(InputPlane.__len__()):
+        if mat.dotProduct(InputPlane[vertexIndex], ShearPlaneNormal) < 0:
+            outside.append(vertexIndex)
+        else:
+            inside.append(vertexIndex)
+
+    match inside.__len__():
+        case 1:  # when there's only 1 vertex inside of the frustrum, meaning that the other 2 will have to be clipped
+            fuel = [mat.Matrix(1, 1), mat.Matrix(1, 1), mat.Matrix(1, 1)]  # the fuel for the queue-el
+            # fuel = [[mat.Matrix(1, 1), mat.Matrix(1, 1), mat.Matrix(1, 1)], 'red', renderBuffer[ii][2]]  # Hardcoded color for debug purposes
+            for i in range(3):
+                fuel[i].copyFrom(InputPlane[i])
+
+            for outsideIndex in outside:
+                ratio = (NearPlaneDistance - InputPlane[outsideIndex](2, 0)) / (InputPlane[inside[0]](2, 0) - InputPlane[outsideIndex](2, 0))  # the ratio between the portion of the line that's under the NearPlaneDistance compared to the whole line
+
+                # increments the x and y of the vertex with index = outsideIndex by the different between the vertex inside and it * ratio, and set z to the NearPlaneDistance
+                fuel[outsideIndex].setIndex((0, 0), InputPlane[outsideIndex](0, 0) + (ratio * (InputPlane[inside[0]](0, 0) - InputPlane[outsideIndex](0, 0))))
+                fuel[outsideIndex].setIndex((1, 0), InputPlane[outsideIndex](1, 0) + (ratio * (InputPlane[inside[0]](1, 0) - InputPlane[outsideIndex](1, 0))))
+                fuel[outsideIndex].setIndex((2, 0), NearPlaneDistance)
+
+            renderBuffer.append(fuel)
+
+        case 2:  # when there's 2 vertex inside of the frustrum, meaning that the last one will have to be clipped
+            bruhMon = 0
+            # Algorithm:
+            # let i1 and i2 be the 2 vertex inside of the frustrum and o be the vertex outside
+            # in any circumstances, we might get the input plane (renderBuffer[ii][0]) as [i1, i2, o] (the order of the 3 vertex is arbitrary)
+            # we copy the input plane into the loop, at the first loop fuel will be [i1, i2, o]
+            # i1's index is the first insideIndex
+            # after calculating the ratio between i1 and o, then use it to push o to the place that (I hope) is the point of interception between line(i1, o) and the near plane, we get a new vertex, which we will call alpha
+            # we sanitise it be setting it's detph to NearPlaneDistance, making sure it will not be processed here again
+            # we will set fuel to [i1, i2, alpha] and append it to renderBuffer, thus getting the first part of the quadrangle that we need
+            # we now need the second part of the quadrangle, which will consist of i2, alpha, and the point of interception between line(i2, o) and the near plane, which we will call beta.
+            # getting beta is the same as getting alpha, but because i've designed the vertex system that take a specific sequence of vertex to determine the front and back side of a plane, which I've forgotten and although it would be easy to just learn it again, it would means that I will have to countinue to hardcode that sequence in, will is an absolute pain if I want to change the sequence, so I'm gonna do stuffs like this to preserve the original sequence instead.
+            # Anyways, since both vertices will include the vertex i2, and i1 to i2 and alpha to i2 should have the same orientation (just eyeball it lol), that means that [alpha, i2, beta] should have the same sequence as [i1, i2, o]
+            # which is why at the end of the loop, we will set renderBuffer[ii][0][insideIndex] (i1) to fuel[0][outside[0]] (alpha)
+
+            # Update: Except this DOES NOT WORK, due to the fact that I designed the obj read system to read planes and vertices seperately inorder to re-use a vertex for multiple plane, which means that when I set renderBuffer[ii][0][insideIndex] I also changed the vertex of some other plane, which alters them.
+            # Which is why I'm going to copy renderBuffer[ii][0][insideIndex] to an input vector.
+
+            inputPlane = [mat.Matrix(1, 1), mat.Matrix(1, 1), mat.Matrix(1, 1)]
+            for vi in range(3):
+                inputPlane[vi].copyFrom(renderBuffer[ii][0][vi])
+
+            for insideIndex in inside:
+                fuel = [[], renderBuffer[ii][1], renderBuffer[ii][2]]  # the fuel for the queue-el
+                # fuel = [[], 'green' if bruhMon == 0 else 'blue', renderBuffer[ii][2]]  # Hardcoded colors for debug purposes
+                fuel[0] = [mat.Matrix(1, 1), mat.Matrix(1, 1), mat.Matrix(1, 1)]
+                fuel[0][0].copyFrom(inputPlane[0])
+                fuel[0][1].copyFrom(inputPlane[1])
+                fuel[0][2].copyFrom(inputPlane[2])
+
+                ratio = (NearPlaneDistance - inputPlane[outside[0]](2, 0)) / (inputPlane[insideIndex](2, 0) - inputPlane[outside[0]](2, 0))  # the ratio between the portion of the line that's under the NearPlaneDistance compared to the whole line
+
+                # increments the x and y of the vertex with index = outsideIndex by the different between the vertex inside and it * ratio, and set z to the NearPlaneDistance
+#                         print("bruhMon2: " + str(insideIndex))
+#                         print("AA: ")
+#                         print(inputPlane[insideIndex])
+#                         print("BB: ")
+#                         print(fuel[0])
+#                         for matacs in fuel[0]:
+#                             print(matacs)
+                fuel[0][outside[0]].setIndex((0, 0), inputPlane[outside[0]](0, 0) + (ratio * (inputPlane[insideIndex](0, 0) - inputPlane[outside[0]](0, 0))))
+                fuel[0][outside[0]].setIndex((1, 0), inputPlane[outside[0]](1, 0) + (ratio * (inputPlane[insideIndex](1, 0) - inputPlane[outside[0]](1, 0))))
+                fuel[0][outside[0]].setIndex((2, 0), NearPlaneDistance)
+#                         print("CC: ")
+#                         for matacs in fuel[0]:
+#                             print(matacs)
+
+                renderBuffer.append(fuel.copy())
+                # print("394: " + str(bruhMon) + " " +)
+
+                inputPlane[insideIndex] = fuel[0][outside[0]]
+
+                bruhMon = bruhMon + 1
+
+        case 3:
+            clippedPlanes.append(renderBuffer[ii])
+
