@@ -5,7 +5,6 @@ import pygame
 import struct
 import math
 import customMatrix as mat
-import customDraw as cusD
 import renderer as cusB
 import numpy as np
 

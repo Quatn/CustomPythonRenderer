@@ -1,5 +1,6 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PI 3.14159265358979323846
+#define endl printf("\n")
 #include <math.h>
 #include <Python.h>
 #include <python3.10/numpy/arrayobject.h>
@@ -117,6 +118,16 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 
 					int outSideInd[2], inSideInd = 0;
 
+					printf("initial");
+					endl;
+					for(int i = 0; i<3 ; i++) {
+						for(int ii = 0; ii<3 ; ii++) {
+							printf("%lf ", tri[i][ii]);
+						}
+						endl;
+					}
+
+
 					printf("c1-");
 					fflush(stdout);
 					//Kinda dumb var optimize
@@ -144,6 +155,12 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						triClippedNear[0][outSideInd[i]][0] = tri[outSideInd[i]][0] + ratio * (tri[inSideInd][0] - tri[outSideInd[i]][0]);
 						triClippedNear[0][outSideInd[i]][1] = tri[outSideInd[i]][1] + ratio * (tri[inSideInd][1] - tri[outSideInd[i]][1]);
 						triClippedNear[0][outSideInd[i]][2] = nearPlaneDistance;
+
+						printf("paff");
+						endl;
+						for(int ii = 0; ii<3 ; ii++) printf("%lf ", triClippedNear[0][outSideInd[i]][ii]);
+
+
 					}
 					printf("c4\n");
 					fflush(stdout);
@@ -161,7 +178,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						printf("\nASSUMED INDICES DOES NOT TOTAL TO 3\n");
 					}
 
-					int alpha[2][3];
+					double alpha[2][3];
 					for(int i = 0; i<2; i++) {
 						double ratio = (tri[inSideInd[i]][2] - nearPlaneDistance) / (tri[inSideInd[i]][2] - tri[outSideInd][2]);
 
@@ -204,7 +221,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 		printf("\nDone clipping triangle %i againts the Near plane\n", triNum);
 		fflush(stdout);
 
-		//Another predefined, just in case
+		//Another predefine, just in case
 		double triClippedAll[][3][3] = 
 		{
 			{
@@ -243,11 +260,23 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 // 			printf("\ncc3\n");
 
 			printf("nearTriNum: %i, againts far plane case: %i\n", nearTriNum, nIndsInFar);
-// 			printf("c-3");
+
+
+			endl;
+			printf("puff\n");
+			for(int i = 0; i<3 ; i++) {
+				for(int ii = 0; ii<3 ; ii++) {
+					printf("%lf ", triClippedNear[nearTriNum][i][ii]);
+				}
+				endl;
+			}
+			// 			printf("c-3");
 			switch (nIndsInFar) {
 				case 1: 
 					{
+						printf("p-2\n");
 						printf("c1-");
+						endl;
 						fflush(stdout);
 						int outSideInd[2], inSideInd = 0;
 
@@ -273,17 +302,19 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 							printf("b0\nDataB: nearTriNum: %i, i: %i, outSideInd: %i, inSideInd: %i, ratio: %lf\n", nearTriNum, i, outSideInd[i], inSideInd, ratio);
 							fflush(stdout);
 
-							printf("b1-");
-							fflush(stdout);
 							triClippedAll[triFarCount][outSideInd[i]][0] = triClippedNear[nearTriNum][outSideInd[i]][0] + ratio * (triClippedNear[nearTriNum][inSideInd][0] - triClippedNear[nearTriNum][outSideInd[i]][0]);
-
-							printf("b2-");
+							printf("%lf ", triClippedAll[triFarCount][outSideInd[i]][0]);
 							fflush(stdout);
+
 							triClippedAll[triFarCount][outSideInd[i]][1] = triClippedNear[nearTriNum][outSideInd[i]][1] + ratio * (triClippedNear[nearTriNum][inSideInd][1] - triClippedNear[nearTriNum][outSideInd[i]][1]);
-
-							printf("b3\n");
+							printf("%lf ", triClippedAll[triFarCount][outSideInd[i]][1]);
 							fflush(stdout);
+
 							triClippedAll[triFarCount][outSideInd[i]][2] = farPlaneDistance;
+							printf("%lf", triClippedAll[triFarCount][outSideInd[i]][2]);
+							fflush(stdout);
+
+							endl;
 
 						}
 
@@ -311,7 +342,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 
 						//printf("in1: %i, in2: %i, o: %i", inSideInd[0], inSideInd[1], outSideInd);
 
-						int alpha[2][3];
+						double alpha[2][3];
 						for(int i = 0; i<2; i++) {
 							double ratio = (farPlaneDistance - triClippedNear[nearTriNum][inSideInd[i]][2]) / (triClippedNear[nearTriNum][outSideInd][2] - triClippedNear[nearTriNum][inSideInd[i]][2]);
 							//printf("ratio: %lf\n", ratio);
@@ -320,6 +351,8 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 							//printf("test1: %i, test2: %i\n", triClippedNear[nearTriNum][outSideInd][0] /*- triClippedNear[nearTriNum][inSideInd[i]][0]*/, alpha[i][0]);
 							alpha[i][1] = triClippedNear[nearTriNum][inSideInd[i]][1] + ratio * (triClippedNear[nearTriNum][outSideInd][1] - triClippedNear[nearTriNum][inSideInd[i]][1]);
 							alpha[i][2] = farPlaneDistance;
+
+							//for(int ii = 0; ii<3 ; ii++) printf("%lf, ", alpha[i][ii]);
 						}
 
 						//for(int ti = 0; ti < 2; ti++)
