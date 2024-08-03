@@ -1,5 +1,3 @@
-# 3D renderer 3: C Shenanigan
-
 # import sys
 import pygame
 import struct
