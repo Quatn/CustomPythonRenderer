@@ -8,6 +8,20 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+static int colorFunc(int mode, int color, int depth) {
+	switch (mode) {
+		case 0:
+			return color;
+			break;
+		case 1:
+			color = ((int)(depth * 5)) & 0xff;
+			color |= (color << 8) | (color << 16);
+			return (color > 0xffffff)? 0xffffff: color;
+			break;
+	}
+	return 0;
+}
+
 static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 	int sizeY = -1, sizeX = -1, halfSizeX = 1, halfSizeY = 1;
 	double HFOV = 1, VFOV = 1, tanHFOV = 1, tanVFOV = 1, nearPlaneDistance = -1, farPlaneDistance = -1;
@@ -263,6 +277,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 			}
 
 		//Paint the 2D triangles
+		int colorMode = 1;
 		for (int d = 0; d < triFarCount; d++) {
 			int indTop = 0, indBot = 0, indSide = -1;
 
@@ -335,7 +350,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					end = spine_a * i + spine_b;
 
 					startZ = triPerspective[d][indBot][2];
-					endZ = startZ + femur_deltaZ;
+					endZ = startZ + spine_deltaZ;
 
 					for (i = i; i < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); i++) {
 						yChunk = i * sizeY;
@@ -346,9 +361,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
 							//CanvasData[pointer] = color;
-							int color = ((int)z * 5) & 0xff;
-							color |= (color << 8) | (color << 16);
-							CanvasData[pointer] = (color > 0xffffff)? 0xffffff: color;
+							CanvasData[pointer] = colorFunc(colorMode, color, z);
 							z += zDelta;
 						}
 						start = start + femur_a;
@@ -364,11 +377,19 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						yChunk = i * sizeY;
 						safeStart = yChunk + ((start > 0)? start : 0);
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
+
+						z = startZ;
+						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
-							CanvasData[pointer] = color;
+							//CanvasData[pointer] = color;
+							CanvasData[pointer] = colorFunc(colorMode, color, z);
+							z += zDelta;
 						}
 						start = start + ribcage_a;
 						end = end + spine_a;
+
+						startZ += ribcage_deltaZ;
+						endZ += spine_deltaZ;
 					}
 				}
 				else {
@@ -376,15 +397,25 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					start = spine_a * i + spine_b;
 					end = femur_a * i + femur_b;
 
+					startZ = triPerspective[d][indBot][2];
+					endZ = startZ + femur_deltaZ;
+
 					for (i = i; i < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); i++) {
 						yChunk = i * sizeY;
 						safeStart = yChunk + ((start > 0)? start : 0);
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
+
+						z = startZ;
+						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
-							CanvasData[pointer] = color;
+							CanvasData[pointer] = colorFunc(colorMode, color, z);
+							z += zDelta;
 						}
 						start = start + spine_a;
 						end = end + femur_a;
+
+						startZ += spine_deltaZ;
+						endZ += femur_deltaZ;
 					}
 
 					start = spine_a * i + spine_b;
@@ -393,11 +424,18 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						yChunk = i * sizeY;
 						safeStart = yChunk + ((start > 0)? start : 0);
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
+
+						z = startZ;
+						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
-							CanvasData[pointer] = color;
+							CanvasData[pointer] = colorFunc(colorMode, color, z);
+							z += zDelta;
 						}
 						start = start + spine_a;
 						end = end + ribcage_a;
+
+						startZ += spine_deltaZ;
+						endZ += ribcage_deltaZ;
 					}
 				}
 			}
@@ -405,7 +443,6 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 	}
 	return Py_BuildValue("i", 0);
 }
-
 
 static PyObject* version(PyObject* self) {
 	return Py_BuildValue("s", "V1.3");

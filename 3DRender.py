@@ -59,7 +59,7 @@ Fov = math.pi / 2
 # tanFov1 = math.tan(math.pi / 4)
 
 NearPlaneDistance = 1  # 1 / tanFov  # The distance between the camera and the near plane (or just the distance that planes will be clipped if it goes below)
-FarPlaneDistance = 20
+FarPlaneDistance = 40
 
 print("55: " + str(math.tan(math.pi / 4)))
 
