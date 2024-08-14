@@ -51,7 +51,7 @@ MoveSpeed = 0.1
 # Fov = math.pi / 2.1
 Fov = math.pi / 2
 
-# # TODO: Find out wtf this part is
+# # TODO: Find out wtf this part is. Look, it's been a while
 # SuppleFov = (math.pi / 2) - Fov
 # csSuppleRatio = math.cos(SuppleFov) / math.sin(SuppleFov)
 # csSuppleRatio1 = math.cos(math.pi / 4) / math.sin(math.pi / 4)
@@ -61,7 +61,7 @@ Fov = math.pi / 2
 NearPlaneDistance = 1  # 1 / tanFov  # The distance between the camera and the near plane (or just the distance that planes will be clipped if it goes below)
 FarPlaneDistance = 40
 
-print("55: " + str(math.tan(math.pi / 4)))
+# print("55: " + str(math.tan(math.pi / 4)))
 
 ObjList = []  # the list that contain all of the objects that's gonna be rendered
 # render object data format:
@@ -73,15 +73,16 @@ ObjList = []  # the list that contain all of the objects that's gonna be rendere
 #   a list of 4 bytes integers, which is read according the the rule above.
 
 # TODO: Adapting to the standard .obj file system would be wise I think.
-# TODO: And also reduce number base (right now a cm in game would be about 20 to 30 int units, which is less messier to deal with in terms of number works, but since the computer is dealing with float points, shits gets pretty unprecise pretty quick) EDIT: Bruh nvm I mutiplied everything with 0.01 at the end of file read.
+# TODO: And also reduce number base (right now a cm in game would be about 20 to 30 int units, which is less messier to deal with in terms of number works, but since the computer is dealing with float points, shits gets pretty unprecise pretty quick) 
+# EDIT: Bruh nvm I mutiplied everything with 0.01 at the end of file read.
 
 f = open("Vert.ver", "rb")
 while f.readline() != b'eof':  # read the file and get info for objects block by block
     name = f.readline()  # the name of the object
     asc = name.decode(encoding="ascii")  # read first line of the block as the object's name
-    print("72: " + str(asc.split()[0]))
+    # print("72: " + str(asc.split()[0]))
     lim = (f.read(2)[0], f.read(2)[0])  # read 2 bytes as the number of vertices and 2 bytes as the number of dimensions (I guess I wanted to have 4d capabilities)
-    print("74: " + str(lim))
+    # print("74: " + str(lim))
 
     # Read an lim[1] ammount of ints as the origin of the object.
     origin = mat.Matrix(lim[1], 1)
@@ -97,13 +98,15 @@ while f.readline() != b'eof':  # read the file and get info for objects block by
             fetchedv[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
             fetchedv2.append(fetchedv[i].clone())
     for iv in fetchedv:
-        print(iv)
-        print(" ")
+        iv
+        # I'll clean this up, soon =)
+        # print(iv)
+        # print(" ")
     f.read(1)
 
     # Read lim like how it did above, but this time the lim is for the number of planes and the ammount of info in a tupple (3 ints for cords and 1 short for color, why did I specified this lol did I want to color squares?).
     lim = (f.read(2)[0], f.read(2)[0])
-    print("93: " + str(lim))
+    # print("93: " + str(lim))
 
     # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
     fetchedp = []
@@ -123,12 +126,13 @@ while f.readline() != b'eof':  # read the file and get info for objects block by
             temp = temp + f.read(1).decode(encoding="ascii")
         fetchedp[i].setIndex((lim[1] - 1, 0), temp)
     for ip in fetchedp:
-        print(ip)
-        print(" ")
+        ip
+        # print(ip)
+        # print(" ")
 
     f.read(1)  # Read an extra character, if it's b'eof' then the loop will stop at the start of the next iteration
 
-    print('\n')
+    # print('\n')
     temp = Shape(name.decode(encoding="ascii").split()[0], origin)
     temp.vertices = fetchedv
     temp.perspectiveVertices = fetchedv2
@@ -246,8 +250,14 @@ def awaitSpace():
                     nCont = False
         clock.tick(30)
 
-# Loop begins .................................................................................................................
 
+# Loop begins .................................................................................................................
+ColorMode = 0
+cusB.setColorMode(ColorMode)
+
+Overlay_Help = False
+Overlay_Help_Alpha = 0.7
+Overlay_FOV = True
 while True: 
     Canvas.fill('black')
     pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
@@ -336,12 +346,12 @@ while True:
                     ])
 
     # Sort the toBeRenderd buffer based on the planes' z depth
-    for ii in range(len(renderBuffer)):
-        for iii in range(len(renderBuffer) - ii):
-            if renderBuffer[ii][2] <= renderBuffer[iii + ii][2]:
-                sWitch = renderBuffer[iii + ii]
-                renderBuffer[iii + ii] = renderBuffer[ii]
-                renderBuffer[ii] = sWitch
+#    for ii in range(len(renderBuffer)):
+#        for iii in range(len(renderBuffer) - ii):
+#            if renderBuffer[ii][2] <= renderBuffer[iii + ii][2]:
+#                sWitch = renderBuffer[iii + ii]
+#                renderBuffer[iii + ii] = renderBuffer[ii]
+#                renderBuffer[ii] = sWitch
 
     processedRB = []
     for ii in renderBuffer:
@@ -355,11 +365,15 @@ while True:
     # cusD.draw3DTriangles(Resolution[1], CanvasArr, processedRB, NearPlaneDistance, FarPlaneDistance, Fov)
     # cusB.draw3DTriangles(Resolution[1], CanvasArr, processedRB, NearPlaneDistance, FarPlaneDistance, Fov)
     cusB.draw3DTriangles(Resolution[1], CanvasArr, processedRB, NearPlaneDistance, FarPlaneDistance, DepthBuffer , Fov)
-    print(DepthBuffer)
+    # print(DepthBuffer)
     pygame.pixelcopy.array_to_surface(Canvas, CanvasArr)
-    # print(renderBuffer)
+
+    # Draw overlays
+    if (ColorMode == 1):
+        Canvas.blit(VCR_MONO.render("Depth view", False, 'red'), (0, 0))
+
+    # Finish draw
     pygame.display.update()
-    # awaitSpace()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -375,9 +389,30 @@ while True:
                 if Fov < 2.96:
                     Fov = Fov + 0.1745329
 
+            if event.key == pygame.K_1:
+                if (cusB.setColorMode(1) == 0):
+                    ColorMode = 1
+
+            if event.key == pygame.K_0:
+                if (cusB.setColorMode(0) == 0):
+                    ColorMode = 0
+
             if event.key == pygame.K_p:
-                print(renderBuffer)
-                print(processedRB)
+                CAL = 20
+                f = open("log.txt", "w")
+                f.write(str(len(DepthBuffer)))
+                f.write("\n")
+                f.write(str().ljust(CAL))
+                for itr in range(Resolution[0]):
+                    f.write(str(itr).ljust(CAL))
+
+                f.write("\n")
+                for itr in range(Resolution[1]):
+                    f.write(str(itr).ljust(CAL))
+                    for itr1 in range(Resolution[0]):
+                        f.write(str(DepthBuffer[itr1][itr]).ljust(CAL))
+                    f.write("\n")
+                f.close()
                 pygame.quit()
                 exit()
     clock.tick(60)
