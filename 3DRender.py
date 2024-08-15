@@ -261,7 +261,7 @@ Overlay_FOV = True
 while True: 
     Canvas.fill('black')
     pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
-    DepthBuffer = np.full((Resolution[0], Resolution[1]), float(FarPlaneDistance))
+    DepthBuffer = np.full((Resolution[0], Resolution[1]), float(10000))
 #     print(CanvasArr)
 #     print(DepthBuffer)
 #     DepthBuffer = DepthBuffer.astype(int)

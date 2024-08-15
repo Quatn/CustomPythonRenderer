@@ -11,6 +11,7 @@
 #define NUM_OF_COLOR_MODES 2
 #define COLOR_MODE_DEFAULT 0
 #define COLOR_MODE_DEPTH 1
+#define COLOR_MODE_DEPTH_MULT 0.5
 
 static int colorMode = COLOR_MODE_DEFAULT;
 
@@ -31,7 +32,7 @@ static int colorFunc(int color, int depth) {
 			return color;
 			break;
 		case COLOR_MODE_DEPTH:
-			color = ((int)(depth * 5)) & 0xff;
+			color = ((int)(depth * COLOR_MODE_DEPTH_MULT)) & 0xff;
 			color |= (color << 8) | (color << 16);
 			return (color > 0xffffff)? 0xffffff: color;
 			break;
@@ -335,8 +336,8 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 				femur_b = tri2D[d][indBot][1] - (femur_a * tri2D[d][indBot][0]);
 			}
 
-			double start, end, startZ, endZ, startZDelta, endZDelta, z, zDelta;
-			int x, safeStart, safeEnd, yChunk;
+			double start, end, startZ, endZ, startZDelta, endZDelta, z, zDelta, depth;
+			int x_screen, safeStart, safeEnd, yChunk;
 			if (spineVec[0] != 0) {
 
 //				Too inaccurate
@@ -375,34 +376,41 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					femurVec_pers[0] * spineVec_pers[1] - femurVec_pers[1] * spineVec_pers[0],
 				};
 
-				double dz = (normalVec[0] * triPerspective[d][indTop][0] + normalVec[1] * triPerspective[d][indTop][1]) / normalVec[2] + triPerspective[d][indTop][2];
+				double dz = (normalVec[0] * (triPerspective[d][indTop][0] - (double)sizeX / 2) + normalVec[1] * triPerspective[d][indTop][1] - (double)sizeY / 2) / normalVec[2] + triPerspective[d][indTop][2];
 				double ac = normalVec[0] / normalVec[2];
 				double bc = normalVec[1] / normalVec[2];
 
 				if (tri2D[d][indSide][1] < spine_a * tri2D[d][indSide][0] + spine_b) {
 
-					x = (tri2D[d][indBot][0] > 0)? tri2D[d][indBot][0]: 0;
-					start = femur_a * x + femur_b;
-					end = spine_a * x + spine_b;
+					x_screen = (tri2D[d][indBot][0] > 0)? tri2D[d][indBot][0]: 0;
+					start = femur_a * x_screen + femur_b;
+					end = spine_a * x_screen + spine_b;
 
 //					startZ = triPerspective[d][indBot][2];
 //					endZ = startZ + spine_deltaZ;
 
-					for (x = x; x < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x++) {
-						yChunk = x * sizeY;
-						int y = (start > 0)? start : 0;
-						safeStart = yChunk + y;
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x_screen++) {
+						yChunk = x_screen * sizeY;
+						int y_screen = (start > 0)? start : 0;
+						safeStart = yChunk + y_screen;
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
 
 //						z = startZ;
 //						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 
+						int x = x_screen - sizeX / 2;
+						int y = y_screen - sizeY / 2;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
 							// ax/c + by/c - dz = z
 							z = dz - ac * x + bc * y;
-							if (z < DepthBufferData[pointer]) {
-								CanvasData[pointer] = colorFunc(color, z);
-								DepthBufferData[pointer] = z;
+
+							//VERY bad performance, but I just need it to work first
+							depth = sqrt(x * x + y * y + z * z);
+							//printf("%lf\n", depth);
+
+							if (depth < DepthBufferData[pointer]) {
+								CanvasData[pointer] = colorFunc(color, depth);
+								DepthBufferData[pointer] = depth;
 							}
 							++y;
 						}
@@ -413,23 +421,30 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 //						endZ += spine_deltaZ;
 					}
 
-					start = ribcage_a * x + ribcage_b;
-					end = spine_a * x + spine_b;
-					for (x = x; x < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x++) {
-						yChunk = x * sizeY;
-						int y = (start > 0)? start : 0;
-						safeStart = yChunk + y;
+					start = ribcage_a * x_screen + ribcage_b;
+					end = spine_a * x_screen + spine_b;
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x_screen++) {
+						yChunk = x_screen * sizeY;
+						int y_screen = (start > 0)? start : 0;
+						safeStart = yChunk + y_screen;
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
 
 //						z = startZ;
 //						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 
+						int x = x_screen - sizeX / 2;
+						int y = y_screen - sizeY / 2;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
-							//CanvasData[pointer] = color;
+							// ax/c + by/c - dz = z
 							z = dz - ac * x + bc * y;
-							if (z < DepthBufferData[pointer]) {
-								CanvasData[pointer] = colorFunc(color, z);
-								DepthBufferData[pointer] = z;
+
+							//VERY bad performance, but I just need it to work first
+							depth = sqrt(x * x + y * y + z * z);
+							//printf("%lf\n", depth);
+
+							if (depth < DepthBufferData[pointer]) {
+								CanvasData[pointer] = colorFunc(color, depth);
+								DepthBufferData[pointer] = depth;
 							}
 							++y;
 						}
@@ -441,27 +456,35 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					}
 				}
 				else {
-					x = (tri2D[d][indBot][0] > 0)? tri2D[d][indBot][0]: 0;
-					start = spine_a * x + spine_b;
-					end = femur_a * x + femur_b;
+					x_screen = (tri2D[d][indBot][0] > 0)? tri2D[d][indBot][0]: 0;
+					start = spine_a * x_screen + spine_b;
+					end = femur_a * x_screen + femur_b;
 
 //					startZ = triPerspective[d][indBot][2];
 //					endZ = startZ + femur_deltaZ;
 
-					for (x = x; x < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x++) {
-						yChunk = x * sizeY;
-						int y = (start > 0)? start : 0;
-						safeStart = yChunk + y;
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x_screen++) {
+						yChunk = x_screen * sizeY;
+						int y_screen = (start > 0)? start : 0;
+						safeStart = yChunk + y_screen;
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
 
 //						z = startZ;
 //						zDelta = (end - start)? (endZ - startZ) / (end - start) : 0;
 
+						int x = x_screen - sizeX / 2;
+						int y = y_screen - sizeY / 2;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+							// ax/c + by/c - dz = z
 							z = dz - ac * x + bc * y;
-							if (z < DepthBufferData[pointer]) {
-								CanvasData[pointer] = colorFunc(color, z);
-								DepthBufferData[pointer] = z;
+
+							//VERY bad performance, but I just need it to work first
+							depth = sqrt(x * x + y * y + z * z);
+							//printf("%lf\n", depth);
+
+							if (depth < DepthBufferData[pointer]) {
+								CanvasData[pointer] = colorFunc(color, depth);
+								DepthBufferData[pointer] = depth;
 							}
 							++y;
 						}
@@ -472,19 +495,27 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 //						endZ += femur_deltaZ;
 					}
 
-					start = spine_a * x + spine_b;
-					end = ribcage_a * x + ribcage_b;
-					for (x = x; x < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x++) {
-						yChunk = x * sizeY;
-						int y = (start > 0)? start : 0;
-						safeStart = yChunk + y;
+					start = spine_a * x_screen + spine_b;
+					end = ribcage_a * x_screen + ribcage_b;
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x_screen++) {
+						yChunk = x_screen * sizeY;
+						int y_screen = (start > 0)? start : 0;
+						safeStart = yChunk + y_screen;
 						safeEnd = yChunk + ((end < sizeY)? end : sizeY);
 
+						int x = x_screen - sizeX / 2;
+						int y = y_screen - sizeY / 2;
 						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+							// ax/c + by/c - dz = z
 							z = dz - ac * x + bc * y;
-							if (z < DepthBufferData[pointer]) {
-								CanvasData[pointer] = colorFunc(color, z);
-								DepthBufferData[pointer] = z;
+
+							//VERY bad performance, but I just need it to work first
+							depth = sqrt(x * x + y * y + z * z);
+							//printf("%lf\n", depth);
+
+							if (depth < DepthBufferData[pointer]) {
+								CanvasData[pointer] = colorFunc(color, depth);
+								DepthBufferData[pointer] = depth;
 							}
 							++y;
 						}
