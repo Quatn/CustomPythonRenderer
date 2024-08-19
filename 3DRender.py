@@ -22,15 +22,29 @@ class Shape:
         return self.name
 
 
+# TODO: Init these with a config file
+Cursor_Enabled = True
+Cursor_Type = 0
+Cursor_Size = 12
+
+Overlay_Help = False
+Overlay_Help_Alpha = 0.7
+Overlay_FOV = True
+
+key_LaserPointer = pygame.K_v
+LaserPointer_State = 0
+
 # init
 pygame.init()
 Resolution = (1440, 960)
+ResolutionHalf = (int(Resolution[0] / 2), int(Resolution[1] / 2))
 Canvas = pygame.display.set_mode(Resolution)
 CanvasArr = np.eye(Resolution[0], Resolution[1])
 CanvasArr = CanvasArr.astype(int)
 pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
 clock = pygame.time.Clock()
 VCR_MONO = pygame.font.Font('VCR_OSD_MONO_1.001.ttf', 48)
+VCR_MONO_SMALL = pygame.font.Font('VCR_OSD_MONO_1.001.ttf', 24)
 
 # pointers that marks the vertices' edges for debug purposes
 pointer = VCR_MONO.render('•', False, 'red')
@@ -59,7 +73,7 @@ Fov = math.pi / 2
 # tanFov1 = math.tan(math.pi / 4)
 
 NearPlaneDistance = 1  # 1 / tanFov  # The distance between the camera and the near plane (or just the distance that planes will be clipped if it goes below)
-FarPlaneDistance = 40
+FarPlaneDistance = 100
 
 # print("55: " + str(math.tan(math.pi / 4)))
 
@@ -171,7 +185,7 @@ rotateYMatrix = mat.Matrix(3, 3)
 rotateYMatrix.setIndex((1, 1), 1)
 
 
-# Rotate a 3D vector in the x axis
+# Rotate a 3D vector in the y axis
 def Rotate3Y(vertex, radian):
     if vertex.height == 3:
         rotateYMatrix.setColumn(0, [math.cos(radian), 0, -math.sin(radian)])
@@ -226,7 +240,7 @@ Projev = mat.Matrix(2, 3)
 Projev.setIndex((0, 0), 1)
 Projev.setIndex((1, 1), 1)
 
-# Absolutely no clue why there a second identical matrix here bruh.
+# Absolutely no clue why I put a second identical matrix here bruh.
 Projev2 = mat.Matrix(2, 3)
 Projev2.setIndex((0, 0), 1)
 Projev2.setIndex((1, 1), 1)
@@ -252,12 +266,10 @@ def awaitSpace():
 
 
 # Loop begins .................................................................................................................
+Overlay_Help = False
+Overlay_FOV = True
 ColorMode = 0
 cusB.setColorMode(ColorMode)
-
-Overlay_Help = False
-Overlay_Help_Alpha = 0.7
-Overlay_FOV = True
 while True: 
     Canvas.fill('black')
     pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
@@ -266,9 +278,22 @@ while True:
 #     print(DepthBuffer)
 #     DepthBuffer = DepthBuffer.astype(int)
 
+    keys = pygame.key.get_pressed()
     # Check cursor displacement and rotate the camera angle vector accordingly
-    Cur = (pygame.mouse.get_pos()[1] - Resolution[1] / 2, pygame.mouse.get_pos()[0] - Resolution[0] / 2)
-    if Cur != (0, 0):
+    Cur = [pygame.mouse.get_pos()[1] - Resolution[1] / 2, pygame.mouse.get_pos()[0] - Resolution[0] / 2]
+    if keys[pygame.K_i]:
+        Cur[0] = Cur[0] - 0.1
+
+    if keys[pygame.K_k]:
+        Cur[0] = Cur[0] + 0.1
+
+    if keys[pygame.K_l]:
+        Cur[1] = Cur[1] + 0.1
+
+    if keys[pygame.K_j]:
+        Cur[1] = Cur[1] - 0.1
+
+    if Cur != [0, 0]:
         CamAngle.setIndex((0, 0), CamAngle(0, 0) + (Cur[0] / 180 * math.pi / 2))
         if CamAngle(0, 0) > (math.pi / 2):
             CamAngle.setIndex((0, 0), math.pi / 2)
@@ -277,25 +302,24 @@ while True:
 
         CamAngle.setIndex((1, 0), CamAngle(1, 0) - (Cur[1] / 180 * math.pi / 2))
         pygame.mouse.set_pos(Resolution[0] / 2, Resolution[1] / 2)
-
     # Camera movement
-    keys = pygame.key.get_pressed()
+
     for i in ObjList:
-        if keys[pygame.K_i]:
-            for ii in range(len(i.vertices)):
-                i.vertices[ii] = Rotate3X(i.vertices[ii], 0.1)
+        # if keys[pygame.K_i]:
+        #     for ii in range(len(i.vertices)):
+        #         i.vertices[ii] = Rotate3X(i.vertices[ii], 0.1)
 
-        if keys[pygame.K_k]:
-            for ii in range(len(i.vertices)):
-                i.vertices[ii] = Rotate3X(i.vertices[ii], -0.1)
+        # if keys[pygame.K_k]:
+        #     for ii in range(len(i.vertices)):
+        #         i.vertices[ii] = Rotate3X(i.vertices[ii], -0.1)
 
-        if keys[pygame.K_l]:
-            for ii in range(len(i.vertices)):
-                i.vertices[ii] = Rotate3Y(i.vertices[ii], 0.1)
+        # if keys[pygame.K_l]:
+        #     for ii in range(len(i.vertices)):
+        #         i.vertices[ii] = Rotate3Y(i.vertices[ii], 0.1)
 
-        if keys[pygame.K_j]:
-            for ii in range(len(i.vertices)):
-                i.vertices[ii] = Rotate3Y(i.vertices[ii], -0.1)
+        # if keys[pygame.K_j]:
+        #     for ii in range(len(i.vertices)):
+        #         i.vertices[ii] = Rotate3Y(i.vertices[ii], -0.1)
 
         if keys[pygame.K_d]:
             CamPos.setIndex((2, 0), CamPos(2, 0) + (math.sin(CamAngle(1, 0)) * MoveSpeed))
@@ -372,6 +396,28 @@ while True:
     if (ColorMode == 1):
         Canvas.blit(VCR_MONO.render("Depth view", False, 'red'), (0, 0))
 
+    if (LaserPointer_State == 1):
+        Canvas.blit(VCR_MONO_SMALL.render("Depth: " + str(str(DepthBuffer[ResolutionHalf[0], ResolutionHalf[1]])), False, 'white'), (0, Resolution[1] - 26))
+
+    if Cursor_Enabled:
+        match Cursor_Type:
+            case 0:
+                for dim in range(2):
+                    inc_x = dim
+                    inc_y = 1 - dim
+                    for stroke in range(2):
+                        if dim == 0:
+                            cur = [ResolutionHalf[0] + stroke, int((Resolution[1] - Cursor_Size) / 2) + 1]
+                        else:
+                            cur = [int((Resolution[0] - Cursor_Size) / 2) + 1, ResolutionHalf[1] + stroke]
+
+                        for pixel in range(Cursor_Size):
+                            # print(0xffffff - CanvasArr[cur[0], cur[1]])
+                            Canvas.set_at(cur, int(0xffffff - CanvasArr[cur[0], cur[1]]))
+                            # Canvas.set_at(cur, 16776960)
+                            cur[0] = cur[0] + inc_x
+                            cur[1] = cur[1] + inc_y
+
     # Finish draw
     pygame.display.update()
 
@@ -388,6 +434,12 @@ while True:
             if event.key == pygame.K_RIGHTBRACKET:
                 if Fov < 2.96:
                     Fov = Fov + 0.1745329
+
+            if event.key == key_LaserPointer:
+                if LaserPointer_State == 1:
+                    LaserPointer_State = 0
+                else:
+                    LaserPointer_State = 1
 
             if event.key == pygame.K_1:
                 if (cusB.setColorMode(1) == 0):
