@@ -303,7 +303,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 			}
 
 		/* Logic for the fragment shader */
-		for (int d = 0; d < triFarCount; d++) {
+		for (int d = 0; d < triFarCount; ++d) {
 			int indTop = 0, indBot = 0, indSide = -1;
 
 			if (tri2D[d][1][0] > tri2D[d][indTop][0])
@@ -389,7 +389,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					double start = femur_a * x_screen + femur_b;
 					double end = spine_a * x_screen + spine_b;
 
-					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x_screen++) {
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); ++x_screen) {
 						int yChunk = x_screen * sizeY;
 						int y_screen = (start > 0)? start : 0;
 						int safeStart = yChunk + y_screen;
@@ -401,9 +401,10 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						int x = x_screen - halfSizeX;
 						int y = y_screen - halfSizeY;
 						double z = dz - ac * x - bc * y;
-						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+						for (int pointer = safeStart; pointer < safeEnd; ++pointer) {
 							// ax/c + by/c - dz = z
-							z = dz - ac * x - bc * y;
+							// z = dz - ac * x - bc * y; but since only y itterate
+							z -= bc;
 
 							// double depth = sqrt(x * x + y * y + z * z);
 
@@ -420,7 +421,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 
 					start = ribcage_a * x_screen + ribcage_b;
 					end = spine_a * x_screen + spine_b;
-					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x_screen++) {
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); ++x_screen) {
 						int yChunk = x_screen * sizeY;
 						int y_screen = (start > 0)? start : 0;
 						int safeStart = yChunk + y_screen;
@@ -432,9 +433,9 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						int x = x_screen - halfSizeX;
 						int y = y_screen - halfSizeY;
 						double z = dz - ac * x - bc * y;
-						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+						for (int pointer = safeStart; pointer < safeEnd; ++pointer) {
 							// ax/c + by/c - dz = z
-							z = dz - ac * x - bc * y;
+							z -= bc;
 
 							// double depth = sqrt(x * x + y * y + z * z);
 
@@ -454,7 +455,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 					double start = spine_a * x_screen + spine_b;
 					double end = femur_a * x_screen + femur_b;
 
-					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); x_screen++) {
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indSide][0] < sizeX)? tri2D[d][indSide][0] : sizeX); ++x_screen) {
 						int yChunk = x_screen * sizeY;
 						int y_screen = (start > 0)? start : 0;
 						int safeStart = yChunk + y_screen;
@@ -466,9 +467,9 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						int x = x_screen - halfSizeX;
 						int y = y_screen - halfSizeY;
 						double z = dz - ac * x - bc * y;
-						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+						for (int pointer = safeStart; pointer < safeEnd; ++pointer) {
 							// ax/c + by/c - dz = z
-							z = dz - ac * x - bc * y;
+							z -= bc;
 
 							// double depth = sqrt(x * x + y * y + z * z);
 
@@ -485,7 +486,7 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 
 					start = spine_a * x_screen + spine_b;
 					end = ribcage_a * x_screen + ribcage_b;
-					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); x_screen++) {
+					for (x_screen = x_screen; x_screen < ((tri2D[d][indTop][0] < sizeX)? tri2D[d][indTop][0] : sizeX); ++x_screen) {
 						int yChunk = x_screen * sizeY;
 						int y_screen = (start > 0)? start : 0;
 						int safeStart = yChunk + y_screen;
@@ -497,9 +498,9 @@ static PyObject*  draw3DTriangles(PyObject* self, PyObject* args) {
 						int x = x_screen - halfSizeX;
 						int y = y_screen - halfSizeY;
 						double z = dz - ac * x - bc * y;
-						for (int pointer = safeStart; pointer < safeEnd; pointer++) {
+						for (int pointer = safeStart; pointer < safeEnd; ++pointer) {
 							// ax/c + by/c - dz = z
-							z = dz - ac * x - bc * y;
+							z -= bc;
 
 							// double depth = sqrt(x * x + y * y + z * z);
 
