@@ -1,25 +1,10 @@
 # import sys
 import pygame
-import struct
 import math
 import customMatrix as mat
 import renderer as cusB
 import numpy as np
-
-
-class Shape:
-    origin = None
-    vertices = []
-    perspectiveVertices = []
-    planes = []
-    render = False
-
-    def __init__(self, name, origin):
-        self.name = name
-        self.origin = origin
-
-    def __str__(self):
-        return self.name
+import fileRead as file
 
 
 # TODO: Init these with a config file
@@ -27,8 +12,22 @@ Cursor_Enabled = True
 Cursor_Type = 0
 Cursor_Size = 12
 
+Color_PrimaryMenuButton_Color = pygame.Color(10, 10, 20, a=20)
+Color_PrimaryMenuButton_Color_Active = pygame.Color(200, 200, 200, a=20)
+
+# Dont really know how to do this best tbh
+# 0 = Running
+# 1 = Paused
+Gamestate = 0
+key_Pause = pygame.K_p
+Overlay_Pause_Rect = pygame.Rect((0, 0), (300, 300))
+Overlay_Pause_Color = pygame.Color(200, 200, 200, a=20)
+
+upKey_Overlay_Help = pygame.K_SLASH
 Overlay_Help = False
-Overlay_Help_Alpha = 0.7
+Overlay_Help_Rect = pygame.Rect((0, 0), (300, 300))
+Overlay_Help_Color = pygame.Color(200, 200, 200, a=200)
+
 Overlay_FOV = True
 
 key_LaserPointer = pygame.K_v
@@ -78,81 +77,6 @@ FarPlaneDistance = 100
 # print("55: " + str(math.tan(math.pi / 4)))
 
 ObjList = []  # the list that contain all of the objects that's gonna be rendered
-# render object data format:
-#   \n
-#   Object Name
-#   unsigned short 1: number of vertices to read (does not include the first vertex, which is the "Origin" of the object), unsigned short 2: number of indices each vertex will have.
-#   a list of 4 bytes integers, which is read according the the rule above.
-#   unsigned short 1: number of sets of vertices to read (does not have an orgin vertex like the list above), unsigned short 2: number of indices each set will have, the last one is a 2 bytes unsigned short, which represent the area's color. Honesty I dont really know how a string fits there and do not overflow, perhaps this is only a pointer to the string, but then where does the pointer even points to? I do not know, as long as it works, I won't change this.
-#   a list of 4 bytes integers, which is read according the the rule above.
-
-# TODO: Adapting to the standard .obj file system would be wise I think.
-# TODO: And also reduce number base (right now a cm in game would be about 20 to 30 int units, which is less messier to deal with in terms of number works, but since the computer is dealing with float points, shits gets pretty unprecise pretty quick) 
-# EDIT: Bruh nvm I mutiplied everything with 0.01 at the end of file read.
-
-f = open("Vert.ver", "rb")
-while f.readline() != b'eof':  # read the file and get info for objects block by block
-    name = f.readline()  # the name of the object
-    asc = name.decode(encoding="ascii")  # read first line of the block as the object's name
-    # print("72: " + str(asc.split()[0]))
-    lim = (f.read(2)[0], f.read(2)[0])  # read 2 bytes as the number of vertices and 2 bytes as the number of dimensions (I guess I wanted to have 4d capabilities)
-    # print("74: " + str(lim))
-
-    # Read an lim[1] ammount of ints as the origin of the object.
-    origin = mat.Matrix(lim[1], 1)
-    for i in range(lim[1]):
-        origin.setIndex((i, 0), struct.unpack('i', f.read(4))[0])
-
-    # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
-    fetchedv = []  # The vertex's coordinate.
-    fetchedv2 = []  # A cloned version to store the position of the object relative to the player.
-    for i in range(lim[0]):
-        fetchedv.append(mat.Matrix(lim[1], 1))
-        for ii in range(lim[1]):
-            fetchedv[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
-            fetchedv2.append(fetchedv[i].clone())
-    for iv in fetchedv:
-        iv
-        # I'll clean this up, soon =)
-        # print(iv)
-        # print(" ")
-    f.read(1)
-
-    # Read lim like how it did above, but this time the lim is for the number of planes and the ammount of info in a tupple (3 ints for cords and 1 short for color, why did I specified this lol did I want to color squares?).
-    lim = (f.read(2)[0], f.read(2)[0])
-    # print("93: " + str(lim))
-
-    # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
-    fetchedp = []
-    fetchedp2 = []
-# Comment info: I don't know what this is and why it is commented here lol.
-#    for i in range(lim[0]):
-#        fetchedp.append([0]*lim[1])
-
-    # Operate like vertex position read, just with an extra color index at the end.
-    for i in range(lim[0]):
-        fetchedp.append(mat.Matrix(lim[1], 1))
-        for ii in range(lim[1] - 1):
-            fetchedp[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
-        temp = ''
-        test = struct.unpack('H', f.read(2))[0]
-        for ii in range(test):
-            temp = temp + f.read(1).decode(encoding="ascii")
-        fetchedp[i].setIndex((lim[1] - 1, 0), temp)
-    for ip in fetchedp:
-        ip
-        # print(ip)
-        # print(" ")
-
-    f.read(1)  # Read an extra character, if it's b'eof' then the loop will stop at the start of the next iteration
-
-    # print('\n')
-    temp = Shape(name.decode(encoding="ascii").split()[0], origin)
-    temp.vertices = fetchedv
-    temp.perspectiveVertices = fetchedv2
-    temp.planes = fetchedp
-    ObjList.append(temp)
-f.close()
 
 for i in ObjList:
     for ii in i.vertices:
@@ -253,6 +177,7 @@ verticesClipBuffer = [0, 0, []]
 
 
 def awaitSpace():
+    pygame.mouse.set_visible(True)
     nCont = True
     while nCont:
         for event in pygame.event.get():
@@ -263,14 +188,101 @@ def awaitSpace():
                 if event.key == pygame.K_SPACE:
                     nCont = False
         clock.tick(30)
+    pygame.mouse.set_visible(False)
 
 
-# Loop begins .................................................................................................................
+Overlay_Pause_Rect = pygame.Rect((Resolution[0] / 2 - 150, 300), (300, 100))
+Overlay_Pause_TextSurface = pygame.Surface((Resolution[0] - 400, Resolution[1] - 300), pygame.SRCALPHA)
+Overlay_Pause_TextSurface.blit(VCR_MONO.render("Paused", False, 'white'), (Overlay_Pause_Rect.topleft[0] + 64, Overlay_Pause_Rect.topleft[1] + 26))
+
+Overlay_Pause_ResumeButton_Rect = pygame.Rect((Resolution[0] / 2 - 150, 450), (300, 100))
+Overlay_Pause_ResumeButton_TextSurface = pygame.Surface((Resolution[0] - 400, Resolution[1] - 300), pygame.SRCALPHA)
+Overlay_Pause_ResumeButton_TextSurface.blit(VCR_MONO.render("Resume", False, 'white'), (Overlay_Pause_ResumeButton_Rect.topleft[0] + 64, Overlay_Pause_ResumeButton_Rect.topleft[1] + 26))
+
+Overlay_Pause_QuitButton_Rect = pygame.Rect((Resolution[0] / 2 - 150, 550), (300, 100))
+Overlay_Pause_QuitButton_TextSurface = pygame.Surface((Resolution[0] - 400, Resolution[1] - 300), pygame.SRCALPHA)
+Overlay_Pause_QuitButton_TextSurface.blit(VCR_MONO.render("Quit", False, 'white'), (Overlay_Pause_QuitButton_Rect.topleft[0] + 64, Overlay_Pause_QuitButton_Rect.topleft[1] + 26))
+
+
+def Subroutine_Pause():
+    pygame.draw.rect(Canvas, Overlay_Pause_Color, Overlay_Pause_Rect)
+    Canvas.blit(Overlay_Pause_TextSurface, (0, 0))
+
+    frezeFrame = Canvas.copy()
+    pygame.mouse.set_visible(True)
+    nCont = True
+    while nCont:
+        Canvas.blit(frezeFrame, (0, 0))
+        Cur = pygame.mouse.get_pos()
+
+        ResumeButton_Hover = True if (Cur[0] < Overlay_Pause_ResumeButton_Rect.bottomright[0] and
+                                      Cur[1] < Overlay_Pause_ResumeButton_Rect.bottomright[1] and
+                                      Cur[0] > Overlay_Pause_ResumeButton_Rect.topleft[0] and
+                                      Cur[1] > Overlay_Pause_ResumeButton_Rect.topleft[1]
+                                      ) else False
+
+        QuitButton_Hover = True if (Cur[0] < Overlay_Pause_QuitButton_Rect.bottomright[0] and
+                                    Cur[1] < Overlay_Pause_QuitButton_Rect.bottomright[1] and
+                                    Cur[0] > Overlay_Pause_QuitButton_Rect.topleft[0] and
+                                    Cur[1] > Overlay_Pause_QuitButton_Rect.topleft[1]
+                                    ) else False
+
+        if (ResumeButton_Hover):
+            pygame.draw.rect(Canvas, Color_PrimaryMenuButton_Color_Active, Overlay_Pause_ResumeButton_Rect)
+        else:
+            pygame.draw.rect(Canvas, Color_PrimaryMenuButton_Color, Overlay_Pause_ResumeButton_Rect)
+        Canvas.blit(Overlay_Pause_ResumeButton_TextSurface, (0, 0))
+
+        if (QuitButton_Hover):
+            pygame.draw.rect(Canvas, Color_PrimaryMenuButton_Color_Active, Overlay_Pause_QuitButton_Rect)
+        else:
+            pygame.draw.rect(Canvas, Color_PrimaryMenuButton_Color, Overlay_Pause_QuitButton_Rect)
+        Canvas.blit(Overlay_Pause_QuitButton_TextSurface, (0, 0))
+
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONUP:
+                if (ResumeButton_Hover):
+                    nCont = False
+
+                if (QuitButton_Hover):
+                    pygame.quit()
+                    exit()
+
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == key_Pause:
+                    nCont = False
+
+        pygame.display.update()
+        clock.tick(30)
+    pygame.mouse.set_visible(False)
+
+
+# Loop begin .................................................................................................................
+ColorMode_Texts = (
+    VCR_MONO.render("Depth view", False, 'red'),
+    )
+
+Overlay_NoModelWarning = True
+Overlay_NoModelWarning_Text = VCR_MONO_SMALL.render("Currently not displaying any models, press \";\" to load a model.", False, 'red')
+
+Overlay_Help_DisplayText = VCR_MONO.render("Press \"?\" for control", False, 'red')
 Overlay_Help = False
+Overlay_Help_Rect = pygame.Rect((200, 150), (Resolution[0] - 400, Resolution[1] - 300))
+Overlay_Help_TextSurface = pygame.Surface((Resolution[0] - 400, Resolution[1] - 300), pygame.SRCALPHA)
+Overlay_Help_TextSurface.blit(VCR_MONO.render("WASD: Movement", False, 'red'), (0, 0))
+Overlay_Help_TextSurface.blit(VCR_MONO.render("IJKL: Precise aim", False, 'red'), (0, 48))
+Overlay_Help_TextSurface.blit(VCR_MONO.render("P: Pause", False, 'red'), (0, 48 * 2))
+Overlay_Help_TextSurface.blit(VCR_MONO.render("1-9: Special view modes", False, 'red'), (0, 48 * 4))
+Overlay_Help_TextSurface.blit(VCR_MONO.render(";: Load objects from file", False, 'red'), (0, 48 * 5))
+Overlay_Help_TextSurface.blit(VCR_MONO.render("V: Laser pointer", False, 'red'), (0, 48 * 6))
+
 Overlay_FOV = True
 ColorMode = 0
 cusB.setColorMode(ColorMode)
-while True: 
+while True:
     Canvas.fill('black')
     pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
     DepthBuffer = np.full((Resolution[0], Resolution[1]), float(10000))
@@ -280,7 +292,8 @@ while True:
 
     keys = pygame.key.get_pressed()
     # Check cursor displacement and rotate the camera angle vector accordingly
-    Cur = [pygame.mouse.get_pos()[1] - Resolution[1] / 2, pygame.mouse.get_pos()[0] - Resolution[0] / 2]
+    Cur = pygame.mouse.get_pos()
+    Cur = [Cur[1] - Resolution[1] / 2, Cur[0] - Resolution[0] / 2]
     if keys[pygame.K_i]:
         Cur[0] = Cur[0] - 0.1
 
@@ -393,13 +406,25 @@ while True:
     pygame.pixelcopy.array_to_surface(Canvas, CanvasArr)
 
     # Draw overlays
-    if (ColorMode == 1):
-        Canvas.blit(VCR_MONO.render("Depth view", False, 'red'), (0, 0))
+    if (ColorMode != 0):
+        Canvas.blit(ColorMode_Texts[ColorMode - 1], (0, 0))
+    elif Overlay_NoModelWarning:
+        Canvas.blit(Overlay_NoModelWarning_Text, (0, 0))
+
+    if (Gamestate == 1):
+        Subroutine_Pause()
+        Gamestate = 0
 
     if (LaserPointer_State == 1):
         Canvas.blit(VCR_MONO_SMALL.render("Depth: " + str(str(DepthBuffer[ResolutionHalf[0], ResolutionHalf[1]])), False, 'white'), (0, Resolution[1] - 26))
 
-    if Cursor_Enabled:
+    if Overlay_Help:
+        pygame.draw.rect(Canvas, Overlay_Help_Color, Overlay_Help_Rect)
+        Canvas.blit(Overlay_Help_TextSurface, (200, 150))
+    else:
+        Canvas.blit(Overlay_Help_DisplayText, (Resolution[0] - Overlay_Help_DisplayText.get_size()[0], Resolution[1] - 48))
+
+    if Cursor_Enabled and not Overlay_Help:
         match Cursor_Type:
             case 0:
                 for dim in range(2):
@@ -426,45 +451,56 @@ while True:
             pygame.quit()
             exit()
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFTBRACKET:
-                if Fov > 0.175:  # 10 deg
-                    Fov = Fov - 0.1745329
+        if keys[pygame.K_LSHIFT]:
+            if event.type == pygame.KEYDOWN:
+                if event.key == upKey_Overlay_Help:
+                    Overlay_Help = not Overlay_Help
+        else:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFTBRACKET:
+                    if Fov > 0.175:  # 10 deg
+                        Fov = Fov - 0.1745329
 
-            if event.key == pygame.K_RIGHTBRACKET:
-                if Fov < 2.96:
-                    Fov = Fov + 0.1745329
+                if event.key == pygame.K_RIGHTBRACKET:
+                    if Fov < 2.96:
+                        Fov = Fov + 0.1745329
 
-            if event.key == key_LaserPointer:
-                if LaserPointer_State == 1:
-                    LaserPointer_State = 0
-                else:
-                    LaserPointer_State = 1
+                if event.key == key_Pause:
+                    if Gamestate == 1:
+                        Gamestate = 0
+                    else:
+                        Gamestate = 1
 
-            if event.key == pygame.K_1:
-                if (cusB.setColorMode(1) == 0):
-                    ColorMode = 1
+                if event.key == key_LaserPointer:
+                    if LaserPointer_State == 1:
+                        LaserPointer_State = 0
+                    else:
+                        LaserPointer_State = 1
 
-            if event.key == pygame.K_0:
-                if (cusB.setColorMode(0) == 0):
-                    ColorMode = 0
+                if event.key == pygame.K_1:
+                    if (cusB.setColorMode(1) == 0):
+                        ColorMode = 1
 
-            if event.key == pygame.K_p:
-                CAL = 20
-                f = open("log.txt", "w")
-                f.write(str(len(DepthBuffer)))
-                f.write("\n")
-                f.write(str().ljust(CAL))
-                for itr in range(Resolution[0]):
-                    f.write(str(itr).ljust(CAL))
+                if event.key == pygame.K_0:
+                    if (cusB.setColorMode(0) == 0):
+                        ColorMode = 0
 
-                f.write("\n")
-                for itr in range(Resolution[1]):
-                    f.write(str(itr).ljust(CAL))
-                    for itr1 in range(Resolution[0]):
-                        f.write(str(DepthBuffer[itr1][itr]).ljust(CAL))
+                if event.key == pygame.K_SLASH:
+                    CAL = 20
+                    f = open("log.txt", "w")
+                    f.write(str(len(DepthBuffer)))
                     f.write("\n")
-                f.close()
-                pygame.quit()
-                exit()
+                    f.write(str().ljust(CAL))
+                    for itr in range(Resolution[0]):
+                        f.write(str(itr).ljust(CAL))
+
+                    f.write("\n")
+                    for itr in range(Resolution[1]):
+                        f.write(str(itr).ljust(CAL))
+                        for itr1 in range(Resolution[0]):
+                            f.write(str(DepthBuffer[itr1][itr]).ljust(CAL))
+                        f.write("\n")
+                    f.close()
+                    pygame.quit()
+                    exit()
     clock.tick(60)
