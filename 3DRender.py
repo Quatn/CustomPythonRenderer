@@ -1,4 +1,5 @@
 # import sys
+import os
 import pygame
 import math
 import customMatrix as mat
@@ -12,8 +13,8 @@ Cursor_Enabled = True
 Cursor_Type = 0
 Cursor_Size = 12
 
-Color_PrimaryMenuButton_Color = pygame.Color(10, 10, 20, a=20)
-Color_PrimaryMenuButton_Color_Active = pygame.Color(200, 200, 200, a=20)
+Color_PrimaryMenuButton_Color = pygame.Color(150, 150, 150, a=20)
+Color_PrimaryMenuButton_Color_Active = pygame.Color(220, 220, 220, a=20)
 
 # Dont really know how to do this best tbh
 # 0 = Running
@@ -32,6 +33,11 @@ Overlay_FOV = True
 
 key_LaserPointer = pygame.K_v
 LaserPointer_State = 0
+
+key_FileBrowser = pygame.K_SEMICOLON
+Overlay_FileBrowser = False
+Overlay_FileBrowser_Color = pygame.Color(200, 200, 200, a=20)
+Overlay_FileBrowserSearchBar_Color = pygame.Color(100, 100, 100, a=20)
 
 # init
 pygame.init()
@@ -77,14 +83,6 @@ FarPlaneDistance = 100
 # print("55: " + str(math.tan(math.pi / 4)))
 
 ObjList = []  # the list that contain all of the objects that's gonna be rendered
-
-for i in ObjList:
-    for ii in i.vertices:
-        ii.copyFrom(ii.constantMult(0.01))
-
-for i in ObjList:
-    for ii in i.perspectiveVertices:
-        ii.copyFrom(ii.constantMult(0.01))
 
 
 # Old cube from before file read to object implementation.
@@ -191,6 +189,7 @@ def awaitSpace():
     pygame.mouse.set_visible(False)
 
 
+# Pause screen
 Overlay_Pause_Rect = pygame.Rect((Resolution[0] / 2 - 150, 300), (300, 100))
 Overlay_Pause_TextSurface = pygame.Surface((Resolution[0] - 400, Resolution[1] - 300), pygame.SRCALPHA)
 Overlay_Pause_TextSurface.blit(VCR_MONO.render("Paused", False, 'white'), (Overlay_Pause_Rect.topleft[0] + 64, Overlay_Pause_Rect.topleft[1] + 26))
@@ -240,7 +239,7 @@ def Subroutine_Pause():
         Canvas.blit(Overlay_Pause_QuitButton_TextSurface, (0, 0))
 
         for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONUP:
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 if (ResumeButton_Hover):
                     nCont = False
 
@@ -258,6 +257,272 @@ def Subroutine_Pause():
         pygame.display.update()
         clock.tick(30)
     pygame.mouse.set_visible(False)
+
+
+# File browser
+class FileBrowser:
+    specialCharMap = dict((key, val) for key, val in zip((c for c in "`1234567890-=[];'\\,./"), (C for C in "~!@#$%^&*()_+{}:\"|<>?")))
+
+    Overlay_FileBrowser_Surface_Size = (Resolution[0] - 400, Resolution[1] - 300)
+    Overlay_FileBrowser_Surface_DisplayPos = ((Resolution[0] - Overlay_FileBrowser_Surface_Size[0]) / 2, (Resolution[1] - Overlay_FileBrowser_Surface_Size[1]) / 2)
+    Overlay_FileBrowser_Surface = pygame.Surface(Overlay_FileBrowser_Surface_Size)
+    Overlay_FileBrowser_TitleText = VCR_MONO_SMALL.render("Browse file", False, 'red')
+
+    Overlay_FileBrowserSearchBarButton_Size = (22, 22)
+    Overlay_FileBrowserSearchBar_Rect = pygame.Rect((6, 32), (Overlay_FileBrowser_Surface_Size[0] - Overlay_FileBrowserSearchBarButton_Size[0] - 18, 48))
+
+    Overlay_FileBrowser_Sprite_SearchButton = pygame.image.load('./assets/sprites/menu/FIleBrowser_searchButton.png').convert_alpha()
+    Overlay_FileBrowser_Sprite_ClearButton = pygame.image.load('./assets/sprites/menu/FIleBrowser_clearButton.png').convert_alpha()
+    Overlay_FileBrowser_Sprite_FolderIcon = pygame.image.load('./assets/sprites/menu/FIleBrowser_folderIcon.png').convert_alpha()
+    Overlay_FileBrowserSearchButton_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] - Overlay_FileBrowserSearchBar_Rect[0] - Overlay_FileBrowserSearchBarButton_Size[0], Overlay_FileBrowserSearchBar_Rect[1]), Overlay_FileBrowserSearchBarButton_Size)
+    Overlay_FileBrowserClearButton_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] - Overlay_FileBrowserSearchBar_Rect[0] - Overlay_FileBrowserSearchBarButton_Size[0], Overlay_FileBrowserSearchBar_Rect[1] + Overlay_FileBrowserSearchBarButton_Size[1] + 4), Overlay_FileBrowserSearchBarButton_Size)
+
+    Overlay_FileBrowserButton_Size = (Overlay_FileBrowser_Surface_Size[0] - 20, 32)
+    Overlay_FileBrowser_Sprite_LeftButton = pygame.image.load('./assets/sprites/menu/FIleBrowser_pageButton_left.png').convert_alpha()
+    Overlay_FileBrowser_Sprite_RightButton = pygame.image.load('./assets/sprites/menu/FIleBrowser_pageButton_right.png').convert_alpha()
+
+    Overlay_FileBrowserPageButton_Size = (30, 30)
+    Overlay_FileBrowserPageButton_Left_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] / 2 - 40 - 15, Overlay_FileBrowser_Surface_Size[1] - 32), Overlay_FileBrowserPageButton_Size)
+    Overlay_FileBrowserPageButton_Right_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] / 2 + 40 - 15, Overlay_FileBrowser_Surface_Size[1] - 32), Overlay_FileBrowserPageButton_Size)
+
+    Overlay_FileBrowserMessageButton_Size = (172, 52)
+    Overlay_FileBrowserMessageButton_Back_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] / 2 - 120 - Overlay_FileBrowserMessageButton_Size[0] / 2, Overlay_FileBrowser_Surface_Size[1] / 2 + 92), Overlay_FileBrowserMessageButton_Size)
+    Overlay_FileBrowserMessageButton_Back_Text_Rendered = VCR_MONO.render("Back", False, "white")
+    Overlay_FileBrowserMessageButton_Close_Rect = pygame.Rect((Overlay_FileBrowser_Surface_Size[0] / 2 + 120 - Overlay_FileBrowserMessageButton_Size[0] / 2, Overlay_FileBrowser_Surface_Size[1] / 2 + 92), Overlay_FileBrowserMessageButton_Size)
+    Overlay_FileBrowserMessageButton_Close_Text_Rendered = VCR_MONO.render("Close", False, "white")
+
+    def __init__(self):
+        self.pathContent = []
+        self.dirTupple = []
+        self.fileTupple = []
+        self.dir = "."
+        self.displayDir = ""
+
+        self.page = 0
+        self.pageSize = 15
+
+        # Yea this thing is not a search bar but whatever it's easier to imagine what it is
+        self.searchBarFocus = False
+        self.validPath = True
+
+        self.message = ""
+        self.showMessage = False
+
+    def __call__(self, dir):
+        self.validPath = os.path.lexists(dir)
+
+        if (self.validPath):
+            self.dir = os.path.realpath(dir)
+            self.displayDir = self.dir
+        else:
+            self.displayDir = dir
+            self.dir = ""
+
+        pygame.mouse.set_visible(True)
+        self.Subroutine_FileBrowser_init()
+        self.getFiles()
+        self.Subroutine_FileBrowser_loop()
+        pygame.mouse.set_visible(False)
+
+    def Subroutine_FileBrowser_init(self):
+        self.Overlay_FileBrowser_Surface.fill(Overlay_FileBrowser_Color)
+        self.Overlay_FileBrowser_Surface.blit(VCR_MONO_SMALL.render("Browse files", False, 'white'), (20, 0))
+        pygame.draw.rect(self.Overlay_FileBrowser_Surface, Overlay_FileBrowserSearchBar_Color, self.Overlay_FileBrowserSearchBar_Rect)
+        self.Overlay_FileBrowser_Surface.blit(VCR_MONO_SMALL.render(self.displayDir + ("|" if self.searchBarFocus else ""), False, 'white' if self.validPath else 'red'), (self.Overlay_FileBrowserSearchBar_Rect.topleft[0] + 12, self.Overlay_FileBrowserSearchBar_Rect.topleft[1] + 12))
+
+    def getFiles(self):
+        self.pathContent = os.listdir(self.dir) if self.validPath else []
+        self.dirTupple = tuple(x for x in self.pathContent if os.path.isdir(self.dir + "/" + x))
+        self.fileTupple = tuple(x for x in self.pathContent if not os.path.isdir(self.dir + "/" + x))
+        self.pathContent = (("..",) if self.validPath else ()) + self.dirTupple + self.fileTupple
+        self.page = 0
+        self.showMessage = False
+
+    def Subroutine_FileBrowser_loop(self):
+        nCont = True
+        while nCont:
+            Cur = pygame.mouse.get_pos()
+            pageIndex = self.page * self.pageSize
+            checkHover = tuple(True if (Cur[0] > self.Overlay_FileBrowser_Surface_DisplayPos[0] + 10 and
+                                        Cur[0] < self.Overlay_FileBrowser_Surface_DisplayPos[0] + self.Overlay_FileBrowser_Surface_Size[0] - 10 and
+                                        Cur[1] > self.Overlay_FileBrowser_Surface_DisplayPos[1] + 64 + 36 * (count + 1) and
+                                        Cur[1] < self.Overlay_FileBrowser_Surface_DisplayPos[1] + 64 + 36 * (count + 1) + 32
+                                        ) else False
+                               for count in range(min(self.pageSize, len(self.pathContent) - pageIndex))
+                               )
+
+            countLine = 0
+
+            hoveredEntry = ""
+            msg_Back_Hover = False
+            msg_Close_Hover = False
+            if self.showMessage:
+                # Display message
+                render = VCR_MONO_SMALL.render(self.message, False, 'white')
+                self.Overlay_FileBrowser_Surface.blit(render, ((self.Overlay_FileBrowser_Surface_Size[0] - render.get_width()) / 2, self.Overlay_FileBrowser_Surface_Size[1] / 2))
+                msg_Back_Hover = True if (Cur[0] < self.Overlay_FileBrowserMessageButton_Back_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                          Cur[1] < self.Overlay_FileBrowserMessageButton_Back_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                          Cur[0] > self.Overlay_FileBrowserMessageButton_Back_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                          Cur[1] > self.Overlay_FileBrowserMessageButton_Back_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                          ) else False
+                pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if msg_Back_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserMessageButton_Back_Rect)
+                self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowserMessageButton_Back_Text_Rendered, (self.Overlay_FileBrowserMessageButton_Back_Rect.topleft[0] + 30, self.Overlay_FileBrowserMessageButton_Back_Rect.topleft[1] + 3))
+
+                msg_Close_Hover = True if (Cur[0] < self.Overlay_FileBrowserMessageButton_Close_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                           Cur[1] < self.Overlay_FileBrowserMessageButton_Close_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                           Cur[0] > self.Overlay_FileBrowserMessageButton_Close_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                           Cur[1] > self.Overlay_FileBrowserMessageButton_Close_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                           ) else False
+                pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if msg_Close_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserMessageButton_Close_Rect)
+                self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowserMessageButton_Close_Text_Rendered, (self.Overlay_FileBrowserMessageButton_Close_Rect.topleft[0] + 15, self.Overlay_FileBrowserMessageButton_Close_Rect.topleft[1] + 3))
+            else:
+                # Display file entries
+                for entry in self.pathContent[pageIndex:pageIndex + self.pageSize]:
+                    pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if checkHover[countLine] else Color_PrimaryMenuButton_Color, pygame.Rect((10, 64 + 36 * (countLine + 1)), self.Overlay_FileBrowserButton_Size))
+                    if (pageIndex + countLine < len(self.dirTupple) + 1):
+                        self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowser_Sprite_FolderIcon, (12, 64 + 36 * (countLine + 1) + 2))
+                        self.Overlay_FileBrowser_Surface.blit(VCR_MONO_SMALL.render(entry, False, 'white'), (40, 64 + 36 * (countLine + 1) + 2))
+                    else:
+                        self.Overlay_FileBrowser_Surface.blit(VCR_MONO_SMALL.render(entry, False, '#59e5ad' if entry.endswith(".ver") else 'white'), (12, 64 + 36 * (countLine + 1) + 2))
+                    if checkHover[countLine]:
+                        hoveredEntry = entry
+                    countLine = countLine + 1
+                    if (countLine > 13):
+                        break
+
+            self.Overlay_FileBrowser_Surface.blit(VCR_MONO_SMALL.render(str(self.page + 1), False, 'white'), ((self.Overlay_FileBrowser_Surface_Size[0] - 12) / 2, self.Overlay_FileBrowser_Surface_Size[1] - 28))
+
+            left_Hover = False
+            if (self.page > 0):
+                left_Hover = True if (Cur[0] < self.Overlay_FileBrowserPageButton_Left_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                      Cur[1] < self.Overlay_FileBrowserPageButton_Left_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                      Cur[0] > self.Overlay_FileBrowserPageButton_Left_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                      Cur[1] > self.Overlay_FileBrowserPageButton_Left_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                      ) else False
+                pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if left_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserPageButton_Left_Rect)
+                self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowser_Sprite_LeftButton, (self.Overlay_FileBrowserPageButton_Left_Rect.topleft[0] + 3, self.Overlay_FileBrowserPageButton_Left_Rect.topleft[1] + 3))
+
+            right_Hover = False
+            if (pageIndex + self.pageSize < len(self.pathContent)):
+                right_Hover = True if (Cur[0] < self.Overlay_FileBrowserPageButton_Right_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                       Cur[1] < self.Overlay_FileBrowserPageButton_Right_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                       Cur[0] > self.Overlay_FileBrowserPageButton_Right_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                       Cur[1] > self.Overlay_FileBrowserPageButton_Right_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                       ) else False
+                pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if right_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserPageButton_Right_Rect)
+                self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowser_Sprite_RightButton, (self.Overlay_FileBrowserPageButton_Right_Rect.topleft[0] + 3, self.Overlay_FileBrowserPageButton_Right_Rect.topleft[1] + 3))
+
+
+            SearchButton_Hover = True if (Cur[0] < self.Overlay_FileBrowserSearchButton_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                          Cur[1] < self.Overlay_FileBrowserSearchButton_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                          Cur[0] > self.Overlay_FileBrowserSearchButton_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                          Cur[1] > self.Overlay_FileBrowserSearchButton_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                          ) else False
+            pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if SearchButton_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserSearchButton_Rect)
+            self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowser_Sprite_SearchButton, (self.Overlay_FileBrowserSearchButton_Rect.topleft[0] -1, self.Overlay_FileBrowserSearchButton_Rect.topleft[1] - 1))
+
+            ClearButton_Hover = True if (Cur[0] < self.Overlay_FileBrowserClearButton_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                         Cur[1] < self.Overlay_FileBrowserClearButton_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                         Cur[0] > self.Overlay_FileBrowserClearButton_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                         Cur[1] > self.Overlay_FileBrowserClearButton_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                         ) else False
+            pygame.draw.rect(self.Overlay_FileBrowser_Surface, Color_PrimaryMenuButton_Color_Active if ClearButton_Hover else Color_PrimaryMenuButton_Color, self.Overlay_FileBrowserClearButton_Rect)
+            self.Overlay_FileBrowser_Surface.blit(self.Overlay_FileBrowser_Sprite_ClearButton, (self.Overlay_FileBrowserClearButton_Rect.topleft[0] - 1, self.Overlay_FileBrowserClearButton_Rect.topleft[1] - 1))
+
+            Canvas.blit(self.Overlay_FileBrowser_Surface, self.Overlay_FileBrowser_Surface_DisplayPos)
+
+            SearchBar_Hover = True if (Cur[0] < self.Overlay_FileBrowserSearchBar_Rect.bottomright[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                       Cur[1] < self.Overlay_FileBrowserSearchBar_Rect.bottomright[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1] and
+                                       Cur[0] > self.Overlay_FileBrowserSearchBar_Rect.topleft[0] + self.Overlay_FileBrowser_Surface_DisplayPos[0] and
+                                       Cur[1] > self.Overlay_FileBrowserSearchBar_Rect.topleft[1] + self.Overlay_FileBrowser_Surface_DisplayPos[1]
+                                       ) else False
+
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.searchBarFocus = True if (SearchBar_Hover) else False
+
+                    if (left_Hover):
+                        self.page = self.page - 1
+
+                    if (right_Hover):
+                        self.page = self.page + 1
+
+                    if (SearchButton_Hover or msg_Back_Hover):
+                        self.validPath = os.path.lexists(self.displayDir)
+                        self.dir = os.path.realpath(self.displayDir) if (self.validPath) else ""
+                        self.displayDir = self.dir if self.validPath else self.displayDir
+                        self.getFiles()
+
+                    if (ClearButton_Hover):
+                        self.validPath = False
+                        self.dir = self.displayDir = ""
+
+                    if (msg_Close_Hover):
+                        nCont = False
+                        break
+
+                    if (len(hoveredEntry) > 0):
+                        hoveredEntryCanon = self.displayDir + "/" + hoveredEntry
+                        if (os.path.isdir(hoveredEntryCanon)):
+                            self.validPath = os.path.lexists(hoveredEntryCanon)
+                            self.dir = os.path.realpath(hoveredEntryCanon) if (self.validPath) else ""
+                            self.displayDir = self.dir if self.validPath else self.displayDir
+                            self.getFiles()
+                        else:
+                            print("Opening " + hoveredEntryCanon)
+                            if hoveredEntry.endswith(".ver"):
+                                result = file.readVer(hoveredEntryCanon)
+                                if (result is not None):
+                                    if (len(result) > 0):
+                                        self.message = "Read " + hoveredEntry + " successfully!"
+                                        global ObjList
+                                        ObjList = ObjList + result
+                                        print(ObjList)
+                                    else:
+                                        self.message = "File corrupted or did not contain any models."
+                            else:
+                                self.message = "Unsupported file extension."
+                            self.showMessage = True
+
+                    # print(self.searchBarFocus)
+                    self.Subroutine_FileBrowser_init()
+
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if event.type == pygame.KEYDOWN:
+                    # print(pygame.key.name(event.key))
+                    if (self.searchBarFocus):
+                        keys = pygame.key.get_pressed()
+                        if event.key == pygame.K_ESCAPE:
+                            self.searchBarFocus = False
+                            # print(self.searchBarFocus)
+
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.displayDir = self.displayDir[0:len(self.displayDir) - 1]
+
+                        elif event.key == pygame.K_RETURN:
+                            self.validPath = os.path.lexists(self.displayDir)
+                            self.dir = os.path.realpath(self.displayDir) if (self.validPath) else ""
+                            self.displayDir = self.dir if self.validPath else self.displayDir
+                            self.getFiles()
+
+                        else:
+                            k = pygame.key.name(event.key)
+                            if (len(k) == 1):
+                                if keys[pygame.K_LSHIFT]:
+                                    self.displayDir = self.displayDir + (k.upper() if k.isalpha() else (FileBrowser.specialCharMap[k]))
+                                else:
+                                    self.displayDir = self.displayDir + k
+
+                        self.Subroutine_FileBrowser_init()
+
+                    else:
+                        if event.key == key_FileBrowser:
+                            nCont = False
+
+            pygame.display.update()
+            clock.tick(30)
 
 
 # Loop begin .................................................................................................................
@@ -282,6 +547,7 @@ Overlay_Help_TextSurface.blit(VCR_MONO.render("V: Laser pointer", False, 'red'),
 Overlay_FOV = True
 ColorMode = 0
 cusB.setColorMode(ColorMode)
+ExitingMenu = False
 while True:
     Canvas.fill('black')
     pygame.pixelcopy.surface_to_array(CanvasArr, Canvas)
@@ -307,13 +573,16 @@ while True:
         Cur[1] = Cur[1] - 0.1
 
     if Cur != [0, 0]:
-        CamAngle.setIndex((0, 0), CamAngle(0, 0) + (Cur[0] / 180 * math.pi / 2))
-        if CamAngle(0, 0) > (math.pi / 2):
-            CamAngle.setIndex((0, 0), math.pi / 2)
-        if CamAngle(0, 0) < -(math.pi / 2):
-            CamAngle.setIndex((0, 0), -math.pi / 2)
+        if (not ExitingMenu):
+            CamAngle.setIndex((0, 0), CamAngle(0, 0) + (Cur[0] / 180 * math.pi / 2))
+            if CamAngle(0, 0) > (math.pi / 2):
+                CamAngle.setIndex((0, 0), math.pi / 2)
+            if CamAngle(0, 0) < -(math.pi / 2):
+                CamAngle.setIndex((0, 0), -math.pi / 2)
+            CamAngle.setIndex((1, 0), CamAngle(1, 0) - (Cur[1] / 180 * math.pi / 2))
+        else:
+            ExitingMenu = False
 
-        CamAngle.setIndex((1, 0), CamAngle(1, 0) - (Cur[1] / 180 * math.pi / 2))
         pygame.mouse.set_pos(Resolution[0] / 2, Resolution[1] / 2)
     # Camera movement
 
@@ -413,7 +682,14 @@ while True:
 
     if (Gamestate == 1):
         Subroutine_Pause()
+        ExitingMenu = True
         Gamestate = 0
+
+    if (Overlay_FileBrowser):
+        fb = FileBrowser()
+        fb(".")
+        ExitingMenu = True
+        Overlay_FileBrowser = False
 
     if (LaserPointer_State == 1):
         Canvas.blit(VCR_MONO_SMALL.render("Depth: " + str(str(DepthBuffer[ResolutionHalf[0], ResolutionHalf[1]])), False, 'white'), (0, Resolution[1] - 26))
@@ -470,6 +746,9 @@ while True:
                         Gamestate = 0
                     else:
                         Gamestate = 1
+
+                if event.key == key_FileBrowser:
+                    Overlay_FileBrowser = not Overlay_FileBrowser
 
                 if event.key == key_LaserPointer:
                     if LaserPointer_State == 1:

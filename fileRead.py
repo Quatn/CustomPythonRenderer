@@ -34,64 +34,71 @@ def readVer(fileName):
     # TODO: And also reduce number base (right now a cm in game would be about 20 to 30 int units, which is less messier to deal with in terms of number works, but since the computer is dealing with float points, shits gets pretty unprecise pretty quick)
     # EDIT: Bruh nvm I mutiplied everything with 0.01 at the end of file read.
 
-    f = open(fileName, "rb")
-    while f.readline() != b'eof':  # read the file and get info for objects block by block
-        name = f.readline()  # the name of the object
-        # asc = name.decode(encoding="ascii")  # read first line of the block as the object's name
-        # print("72: " + str(asc.split()[0]))
-        lim = (f.read(2)[0], f.read(2)[0])  # read 2 bytes as the number of vertices and 2 bytes as the number of dimensions (I guess I wanted to have 4d capabilities)
-        # print("74: " + str(lim))
+    try:
+        f = open(fileName, "rb")
+        while f.readline() != b'eof':  # read the file and get info for objects block by block
+            name = f.readline()  # the name of the object
+            # asc = name.decode(encoding="ascii")  # read first line of the block as the object's name
+            # print("72: " + str(asc.split()[0]))
+            lim = (f.read(2)[0], f.read(2)[0])  # read 2 bytes as the number of vertices and 2 bytes as the number of dimensions (I guess I wanted to have 4d capabilities)
+            # print("74: " + str(lim))
 
-        # Read an lim[1] ammount of ints as the origin of the object.
-        origin = mat.Matrix(lim[1], 1)
-        for i in range(lim[1]):
-            origin.setIndex((i, 0), struct.unpack('i', f.read(4))[0])
+            # Read an lim[1] ammount of ints as the origin of the object.
+            origin = mat.Matrix(lim[1], 1)
+            for i in range(lim[1]):
+                origin.setIndex((i, 0), struct.unpack('i', f.read(4))[0])
 
-        # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
-        fetchedv = []  # The vertex's coordinate.
-        fetchedv2 = []  # A cloned version to store the position of the object relative to the player.
-        for i in range(lim[0]):
-            fetchedv.append(mat.Matrix(lim[1], 1))
-            for ii in range(lim[1]):
-                fetchedv[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
-                fetchedv2.append(fetchedv[i].clone())
-        # for iv in fetchedv:
-        # print(iv)
-        # print(" ")
-        f.read(1)
+            # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
+            fetchedv = []  # The vertex's coordinate.
+            fetchedv2 = []  # A cloned version to store the position of the object relative to the player.
+            for i in range(lim[0]):
+                fetchedv.append(mat.Matrix(lim[1], 1))
+                for ii in range(lim[1]):
+                    fetchedv[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
+                    fetchedv2.append(fetchedv[i].clone())
+            # for iv in fetchedv:
+            # print(iv)
+            # print(" ")
+            f.read(1)
 
-        # Read lim like how it did above, but this time the lim is for the number of planes and the ammount of info in a tupple (3 ints for cords and 1 short for color, why did I specified this lol did I want to color squares?).
-        lim = (f.read(2)[0], f.read(2)[0])
-        # print("93: " + str(lim))
+            # Read lim like how it did above, but this time the lim is for the number of planes and the ammount of info in a tupple (3 ints for cords and 1 short for color, why did I specified this lol did I want to color squares?).
+            lim = (f.read(2)[0], f.read(2)[0])
+            # print("93: " + str(lim))
 
-        # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
-        fetchedp = []
-        fetchedp2 = []
-    # Comment info: I don't know what this is and why it is commented here lol.
-    #    for i in range(lim[0]):
-    #        fetchedp.append([0]*lim[1])
+            # Loop lim[0] times: Read lim[1] ammount of ints and put it in a tupple. Each tupple represent a vertex.
+            fetchedp = []
+            fetchedp2 = []
+        # Comment info: I don't know what this is and why it is commented here lol.
+        #    for i in range(lim[0]):
+        #        fetchedp.append([0]*lim[1])
 
-        # Operate like vertex position read, just with an extra color index at the end.
-        for i in range(lim[0]):
-            fetchedp.append(mat.Matrix(lim[1], 1))
-            for ii in range(lim[1] - 1):
-                fetchedp[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
-            temp = ''
-            test = struct.unpack('H', f.read(2))[0]
-            for ii in range(test):
-                temp = temp + f.read(1).decode(encoding="ascii")
-            fetchedp[i].setIndex((lim[1] - 1, 0), temp)
-        # for ip in fetchedp:
-        # print(ip)
-        # print(" ")
+            # Operate like vertex position read, just with an extra color index at the end.
+            for i in range(lim[0]):
+                fetchedp.append(mat.Matrix(lim[1], 1))
+                for ii in range(lim[1] - 1):
+                    fetchedp[i].setIndex((ii, 0), struct.unpack('i', f.read(4))[0])
+                temp = ''
+                test = struct.unpack('H', f.read(2))[0]
+                for ii in range(test):
+                    temp = temp + f.read(1).decode(encoding="ascii")
+                fetchedp[i].setIndex((lim[1] - 1, 0), temp)
+            # for ip in fetchedp:
+            # print(ip)
+            # print(" ")
 
-        f.read(1)  # Read an extra character, if it's b'eof' then the loop will stop at the start of the next iteration
+            f.read(1)  # Read an extra character, if it's b'eof' then the loop will stop at the start of the next iteration
 
-        # print('\n')
-        temp = Shape(name.decode(encoding="ascii").split()[0], origin)
-        temp.vertices = fetchedv
-        temp.perspectiveVertices = fetchedv2
-        temp.planes = fetchedp
-        ObjList.append(temp)
-    f.close()
-    return ObjList
+            # print('\n')
+            temp = Shape(name.decode(encoding="ascii").split()[0], origin)
+            temp.vertices = fetchedv
+            temp.perspectiveVertices = fetchedv2
+            temp.planes = fetchedp
+            ObjList.append(temp)
+        f.close()
+
+        for i in ObjList:
+            for ii in i.vertices:
+                ii.copyFrom(ii.constantMult(0.01))
+        return ObjList
+    except Exception:
+        print("Error while trying to read .ver file")
